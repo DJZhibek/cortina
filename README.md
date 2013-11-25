@@ -47,6 +47,11 @@ Configuring:
 * Click the 'Cancel' button to discard all changes to settings.
 * Click the 'Save' button to save new settings (new settings will be used on the next cortina found during playback).
 
+Build Notes:
+* To build the MediaMonkey Installation Package, compress all files, except for cortina.xml, with any Zip compressor utility. 
+* Rename the resulting zip file to 'cortina.mmip' (mmip = MediaMonkey Installer Package).
+* Double-clicking on 'cortina.mmip' will automatically start the MediaMonkey installation process.
+
 Additional notes:
 * To start playback of a cortina at a different point in the song:
     * Right-click on the cortina in the playlist or library pane.
