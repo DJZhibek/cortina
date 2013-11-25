@@ -2,3 +2,62 @@ cortina
 =======
 
 MediaMonkey Script: Tango DJ utility. Turn songs into cortinas without editing
+
+Installation:
+
+* MediMonkey must be installed on your system before proceeding.
+* Download cortina.mmip and double-click the file, this will launch MediaMonkey and start the script installation process.
+* Some versions of Windows will require entering an administration account name and passowrd to proceed.
+* Restart MediaMonkey.
+
+Updating:
+
+* From the 'Tools' menu, click the 'Extensions' menu item.
+* Click the 'Find Updates' button at the bottom of the dialog box.
+* If an update is available, click on 'Cortina' in the list of extensions, then click the 'Install Update' button.
+* Some versions of Windows will require entering an administration account name and passowrd to proceed.
+* Restart MediaMonkey.
+
+Uninstall:
+
+* From the 'Tools' menu, click the 'Extensions' menu item.
+* Click on 'Cortina' in the list of extensions.
+* Click the 'Uninstall' button.
+* Click the 'OK' button on the confirmation prompt.
+* Select either the 'Yes' or 'No' option on the prompt asking if you wish to delete registry settings created by the script.
+* Click 'OK' on the uninstall information prompt.
+* Restart MediaMonkey.
+
+Configuring:
+
+* From the 'Play' menu, click the 'Cortinas' menu item.
+* Set the following options in the dialog box at any time (settings are re-read each time a cortina is found)
+  * Select where to search for the word "cortina":
+    - Choose where the script should search for the word 'cortina' (not case-sensitive)
+  * Cortina Length:
+    - Drag slider to select the length of the entire cortina, including fade-in and fade-out time  (in seconds).
+  * Fade In Time:
+    - Drag slider to set a fade-in time (in seconds).
+  * Fade Out Time:
+    - Drag slider to set a fade-out time (in seconds).
+  * Gap Time:
+    - Drag slider to add and additional gap of silence after cortina (in seconds).
+  * Cortina Volume:
+    - Drag slider to set playback volume of cortinas (in percent of normal playback volume).
+* Click the 'Cancel' button to discard all changes to settings.
+* Click the 'Save' button to save new settings (new settings will be used on the next cortina found during playback).
+
+Additional notes:
+* To start playback of a cortina at a different point in the song:
+    * Right-click on the cortina in the playlist or library pane.
+    * Select 'Properties' from the pop-up menu.
+    * Click the 'Details' tab in the song properties dialog box.
+    * Change the 'Start Time' setting to anything later that 0:00.
+    * Click the 'OK' button.
+    * Note: setting the Fade-In option to 1 second or more will help hide any abrupt start to the cortina.
+    
+* If the song used for a cortina is shorter than the configured cortina length, the script will try to shorten the 
+  full volume time period of the cortina.  If it is too short, it will be ignored and no cortina will be played.
+  Take this into consideration if you use short silence files, they should not be labeled as cortinas when using this
+  script or they might be skipped.
+
