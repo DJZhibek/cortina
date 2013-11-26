@@ -72,8 +72,12 @@ Sub OnStartup
 	
 	' Register MediaMonkey events we need to act on
 	Script.RegisterEvent SDB, "OnPlay", "Event_OnPlay"
+	Script.RegisterEvent SDB, "OnPause", "Event_OnPause"
 	Script.RegisterEvent SDB, "OnPlaybackEnd", "Cleanup"
 	Script.RegisterEvent SDB, "OnShutdown", "Cleanup"
+	
+	' Save start up volume setting
+	dSongVolume = SDB.Player.Volume
 	
 End Sub
 
@@ -101,9 +105,13 @@ End Sub
 
 ' cleanup function for playback ending and MediaMonkey shutdown
 Sub Cleanup()
+	' If not in a cortina playing state, do nothing
+	If CortinaState = cNone Then Exit Sub
+
 	CortinaState = cNone
 	DisableTimers
 	SDB.Player.Volume = dSongVolume
+
 End Sub
 
 ' tests current song to see if it is a cortina
@@ -152,7 +160,9 @@ End Function
 
 ' Calculate the length of the full volume portion of the cortina in seconds
 Function FullVolumeLength()
-	Dim iSongLength : iSongLength = CInt(SDB.Player.CurrentSong.SongLength / 1000.0) ' convert current song length to seconds
+	Dim iSongLength
+	iSongLength = SDB.Player.CurrentSong.StopTime - SDB.Player.CurrentSong.StartTime ' Calculate real playtime
+	iSongLength = CInt(iSongLength / 1000.0) ' convert current song length to seconds
 	
 	' subtract fade-in and fade-out times from cortina length
 	If iSongLength > iCortinaLen Then
@@ -175,6 +185,9 @@ End Function
 
 ' called when a song starts to play
 Sub Event_OnPlay()
+
+	' save current playback volume
+	dSongVolume = SDB.Player.Volume
 	
 	' check if this song is a cortina
 	If Is_Cortina() = False Then Exit Sub
@@ -186,7 +199,7 @@ Sub Event_OnPlay()
 	
 	' retrieve current song length
 	Dim iSongLength
-	iSongLength = CInt(SDB.Player.CurrentSong.SongLength / 1000.0) ' convert current song length to seconds
+	iSongLength = CInt((SDB.Player.CurrentSong.StopTime - SDB.Player.CurrentSong.StartTime) / 1000.0) ' convert to seconds
 
 	Dim iTotalTime		' Total time for cortina and silence gap
 	If iSongLength < iCortinaLen Then ' if song is shorter than song length, shorten cortina length
@@ -200,9 +213,6 @@ Sub Event_OnPlay()
 	ProgressDisplay.MaxValue = iTotalTime
 	ProgressTimer.Interval = 1000 ' 1000 ms = 1 second
 	ProgressDisplay.Text = "Cortina: " & iTotalTime & " seconds left."
-	
-	' save current playback volume
-	dSongVolume = SDB.Player.Volume
 	
 	' calculate cortina volume
 	dCortinaVolume = dSongVolume * dCortinaVolume
@@ -226,6 +236,23 @@ Sub Event_OnPlay()
 	ProgressTimer.Enabled = True ' start the cortina progress display timer
 	StateTimer.Enabled = True	' start the interrupt timer
 
+End Sub
+
+' Handle Pause button toggle
+Sub Event_OnPause()
+
+	' check if current song is a cortina
+	If Is_Cortina() = False Then Exit Sub
+
+	' Re-enable timers if pause was release, otherwise disabled timers
+	If SDB.Player.isPaused = False And SDB.Player.isPlaying = True Then 
+		If IsObject(StateTimer) Then StateTimer.Enabled = True
+		If IsObject(ProgressTimer) Then ProgressTimer.Enabled = True
+	Else
+		If IsObject(StateTimer) Then StateTimer.Enabled = False
+		If IsObject(ProgressTimer) Then ProgressTimer.Enabled = False
+	End If
+	
 End Sub
 
 ' Update the progress display (shows a progress bar and info text while cortina is playing)
@@ -264,10 +291,11 @@ Sub GoToNextSong()
 		SDB.ProcessMessages
 	WEnd	
 
-	If Player.CurrentSongIndex < Player.PlaylistCount Then
+	If Player.CurrentSongIndex < Player.PlaylistCount Then 
 		Player.Next
 		Player.Play
 	End If
+
 	Player.Volume = dSongVolume
 	
 End Sub
@@ -278,6 +306,8 @@ Sub OnStateTimer(thisTimer)
 	
 	thisTimer.Enabled = False ' Stop timer to avoid triggering while we are here
 	
+	Dim Player : Set Player = SDB.Player
+	
 	' Act on current state of cortina
 	Select Case CortinaState
 		Case cNone ' Should never happen
@@ -286,15 +316,15 @@ Sub OnStateTimer(thisTimer)
 		Case cFadeIn ' handle fade in timer interrupt
 			' increment the fade-in timer
 			If iStateCounter > 0 Then
-				If SDB.Player.Volume + dVolumeInc < dCortinaVolume Then
-					SDB.Player.Volume = SDB.Player.Volume + dVolumeInc
+				If Player.Volume + dVolumeInc < dCortinaVolume Then
+					Player.Volume = Player.Volume + dVolumeInc
 				Else
-					SDB.Player.Volume = dCortinaVolume
+					Player.Volume = dCortinaVolume
 				End If
 				iStateCounter = iStateCounter - 1
 			Else
 				' Switch to FullVolume State
-				SDB.Player.Volume = dCortinaVolume
+				Player.Volume = dCortinaVolume
 				iStateCounter = FullVolumeLength()
 				thisTimer.Interval = 1000
 				CortinaState = cFullVolume
@@ -317,7 +347,7 @@ Sub OnStateTimer(thisTimer)
 				Else
 					' if no fade-out, check if silence gap is set
 					If iGapTime > 0 Then
-						SDB.Player.Volume = 0.0		' turn volume all the way down
+						Player.Volume = 0.0			' turn volume all the way down
 						CortinaState = cGap			' set state to gap time
 						iStateCounter = iGapTime	' set counter to gap time
 						thisTimer.Interval = 1000	' set interrupt timer to 1 second (1000ms)
@@ -335,17 +365,15 @@ Sub OnStateTimer(thisTimer)
 		Case cFadeOut	' handle fade-out timer interrupt	
 			If iStateCounter > 0 Then
 				' still fading out, lower volume
-				'If SDB.Player.Volume > dVolumeInc Then
-					'SDB.Player.Volume = SDB.Player.Volume - dVolumeInc
-				If SDB.Player.Volume > 0.0 Then
-					SDB.Player.Volume = FadeOutVolume(CDbl(iFadeOut * 4), dCortinaVolume, CDbl((iFadeOut * 4)-iStateCounter))
+				If Player.Volume > 0.0 Then
+					Player.Volume = FadeOutVolume(CDbl(iFadeOut * 4), dCortinaVolume, CDbl((iFadeOut * 4)-iStateCounter))
 				Else
-					SDB.Player.Volume = 0.0
+					Player.Volume = 0.0
 				End If
 				iStateCounter = iStateCounter - 1
 				thisTimer.Enabled = True		' re-start the interrupt timer
 			Else
-				SDB.Player.Volume = 0.0		' fade-out is finished, make sure volume is zero
+				Player.Volume = 0.0		' fade-out is finished, make sure volume is zero
 				If iGapTime > 0 Then		' check if a silence gap is set
 					CortinaState = cGap				' set state to gap
 					iStateCounter = iGapTime		' set counter to gap time
