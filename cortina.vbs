@@ -291,7 +291,7 @@ Sub GoToNextSong()
 		SDB.ProcessMessages
 	WEnd	
 
-	If Player.CurrentSongIndex < Player.PlaylistCount Then 
+	If Player.CurrentSongIndex + 1 < Player.PlaylistCount Then 
 		Player.Next
 		Player.Play
 	End If
