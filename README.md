@@ -41,7 +41,7 @@ Configuring:
   * Fade Out Time:
     - Drag slider to set a fade-out time (in seconds).
   * Gap Time:
-    - Drag slider to add and additional gap of silence after cortina (in seconds).
+    - Drag slider to add and additional gap of silence after cortinas and songs (in seconds).
   * Cortina Volume:
     - Drag slider to set playback volume of cortinas (in percent of normal playback volume).
 * Click the 'Cancel' button to discard all changes to settings.
