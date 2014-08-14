@@ -30,16 +30,28 @@ Option Explicit
 Const cRegKey = "kc_cortina"
 
 ' set the default values
-Dim bSearchTitle : bSearchTitle = False			' do we search song title for 'cortina'?
-Dim bSearchGenre : bSearchGenre = False			' do we search song genre for 'cortina'?
-Dim bSearchAllCustomTags : bSearchAllCustomTags = False	' do we search song Custom1 tag for 'cortina'?
-Dim bSearchPath : bSearchPath = False			' do we search song path for 'cortina'?
+Dim bSearchTitle : bSearchTitle = False			' search song title for 'cortina'?
+Dim bSearchGenre : bSearchGenre = False			' search song genre for 'cortina'?
+Dim bSearchPath : bSearchPath = False			' search song path for 'cortina'?
+Dim bSearchAllCustomTags : bSearchAllCustomTags = False	' search song Custom1 tag for 'cortina'?
 Dim iCortinaLen : iCortinaLen = 45				' default cortina length in seconds (includes fade-in and fade-out time)
-Dim dCortinaVolume : dCortinaVolume = 0.6		' default cortina volume multiplier
-Dim iFadeIn : iFadeIn = 0						' default fade-in time in seconds
+Dim dCortinaVolume : dCortinaVolume = 0.7		' default cortina volume multiplier
+Dim iFadeIn : iFadeIn = 1						' default fade-in time in seconds
 Dim iFadeOut : iFadeOut = 5						' default fade-out time in seconds
-Dim iGapTime : iGapTime = 1						' default gap time in seconds (additional silence added after cortina)
+Dim iGapTime : iGapTime = 2						' default gap time in seconds (additional silence added after cortinas and songs)
 Dim dSongVolume : dSongVolume = 1.0				' storage for current playback volume (copied before cortina volume modifies it)
+
+
+' cortina setting constants
+Const cSecLabel = " sec"
+Const cCortinaMin = 15
+Const cCortinaMax = 240
+Const cFadeInMin = 0
+Const cFadeInMax = 10
+Const cFadeOutMin = 0
+Const cFadeOutMax = 15
+Const cGapMin = 0
+Const cGapMax = 5
 
 
 ' cortina status constants
@@ -48,11 +60,12 @@ Const cFadeIn = 1
 Const cFullVolume = 2
 Const cFadeOut = 3
 Const cGap = 4
-Dim CortinaState : CortinaState = cNone			' keeps track of where we are in the cortina playback
+Dim CortinaState : CortinaState = cNone	' keeps track of where we are in the cortina playback
 
 ' globals used during cortina playback
-Dim iStateCounter			' timer counter used by all cortina states
-Dim dVolumeInc				' volume increment for fade-in and fade-out (calculated from cortina volume and fade times)
+Dim iStateCounter : iStateCounter = 0	' timer counter used by all cortina states
+Dim dVolumeInc : dVolumeInc = 1.0		' volume increment for fade-in and fade-out (calculated from cortina volume and fade times)
+Dim bDoingCortina : bDoingCortina = False	' True is a cortina is currently being processed
 
 ' global objects used to track cortina progress
 Dim ProgressDisplay : Set ProgressDisplay = Nothing		' used to display cortina progress text
@@ -67,18 +80,18 @@ Sub OnStartup
 	Script.RegisterEvent MenuItem, "OnClick", "ShowForm"
 	MenuItem.Visible = True
 	
-	ReadSettings	' Read previously saved settings
-	CreateTimers	' Create timers used by cortinas
+	ToggleCrossfade(False)		' Turn off crossfade, backup current setting
+	ReadSettings				' Read previously saved settings
+	CreateTimers				' Create timers used by cortinas
 	
 	' Register MediaMonkey events we need to act on
 	Script.RegisterEvent SDB, "OnPlay", "Event_OnPlay"
 	Script.RegisterEvent SDB, "OnPause", "Event_OnPause"
-	Script.RegisterEvent SDB, "OnPlaybackEnd", "Cleanup"
-	Script.RegisterEvent SDB, "OnShutdown", "Cleanup"
+	Script.RegisterEvent SDB, "OnStop", "Event_OnStop"
+	Script.RegisterEvent SDB, "OnTrackEnd", "Event_TrackEnd"
+	Script.RegisterEvent SDB, "OnShutdown", "Shutdown"
 	
-	' Save start up volume setting
-	dSongVolume = SDB.Player.Volume
-	
+	dSongVolume = SDB.Player.Volume ' Save start up volume setting
 End Sub
 
 ' create timers for cortina playback
@@ -94,24 +107,28 @@ Sub CreateTimers()
 	Script.RegisterEvent StateTimer, "OnTimer", "OnStateTimer"
 End Sub
 
-' Disable timers, set cortina state to none, destroy reference to the player progress display
+' Disable timers
 Sub DisableTimers()
 	On Error Resume Next
-	If IsObject(StateTimer) Then StateTimer.Enabled = False
-	If IsObject(ProgressTimer) Then ProgressTimer.Enabled = False
-	If IsObject(ProgressDisplay) Then Set ProgressDisplay = Nothing
+		StateTimer.Enabled = False
+		ProgressTimer.Enabled = False
 	On Error GoTo 0
 End Sub
 
-' cleanup function for playback ending and MediaMonkey shutdown
+' cleanup function for playback ending
 Sub Cleanup()
-	' If not in a cortina playing state, do nothing
-	If CortinaState = cNone Then Exit Sub
-
-	CortinaState = cNone
 	DisableTimers
-	SDB.Player.Volume = dSongVolume
+	Set ProgressDisplay = Nothing
+	CortinaState = cNone
+End Sub
 
+' cleanup function for MediaMonkey shutdown
+Sub Shutdown()
+	Cleanup
+	On Error Resume Next
+		Script.UnregisterAllEvents
+		ToggleCrossfade(True)	' Restore old crossfade settings on shutdown
+	On Error GoTo 0
 End Sub
 
 ' tests current song to see if it is a cortina
@@ -176,76 +193,175 @@ Function FullVolumeLength()
 
 End Function
 
-' Calculate fade out volume
+' Calculate fade out volume at any point in time
 Function FadeOutVolume(dFadeLength, dStartVolume, dTimePoint)
 	FadeOutVolume = dStartVolume * ((cos((dTimePoint/dFadeLength) * 3.1415) + 1.0) / 2.0)
-	'FadeOutVolume = dStartVolume * ((1.0 / (dTimePoint / dFadeLength + 0.05) - 1.0) / 19.0)
-	If FadeOutVolume < 0.0 Then FadeOutVolume = 0.0
+	If FadeOutVolume < 0.001 Then FadeOutVolume = 0.0
 End Function
+
+
+' play next song, if applicable
+Sub GoToNextSong()
+	If SDB.Player.CurrentSongIndex + 1 < SDB.Player.PlaylistCount Then
+		If bDoingCortina Then SDB.Player.Next
+		SDB.ProcessMessages
+	End If
+End Sub
+
+' Get what the next state should be without changing the current state
+Function GetNextState(curState)
+	GetNextState = curState
+
+	If GetNextState = cNone Then
+		If iFadeIn > 0 Then
+			GetNextState = cFadeIn
+			Exit Function
+		End If
+		GetNextState = cFullVolume
+	End If
+	
+	If GetNextState = cFadeIn Then
+		If FullVolumeLength() > 0 Then
+			GetNextState = cFullVolume
+			Exit Function
+		End If
+		GetNextState = cFadeOut
+	End If
+		
+	If GetNextState = cFullVolume Then	
+		If iFadeOut > 0 Then
+			GetNextState = cFadeOut
+			Exit Function
+		End If
+		GetNextState = cGap
+	End If
+
+	If GetNextState = cFadeOut Then	
+		If iGapTime > 0 Then
+			GetNextState = cGap
+			Exit Function
+		End If
+		GetNextState = cNone
+	End If
+
+	If GetNextState = cGap Then	
+		GetNextState = cNone
+	End If
+End Function
+
+Sub SetupState(newState)
+	DisableTimers
+	
+	Dim Player : Set Player = SDB.Player
+
+	Select Case newState
+		Case cNone
+			CortinaState = cNone
+			Exit Sub
+			
+		Case cFadeIn					' fade in timer is used, start it
+			CortinaState = cFadeIn		' set cortina state to fade-in
+			Player.Volume = 0.0
+			iStateCounter = iFadeIn * 4	' convert seconds to quarter seconds		
+			dVolumeInc = dCortinaVolume / CDbl(iStateCounter) ' calculate volume decrement value from current settings
+			StateTimer.Interval = 250	' set timer interval to 1/4 second (250ms)
+			On Error Resume Next
+				If ProgressDisplay Is Nothing Then
+					Set ProgressDisplay = SDB.Progress
+					ProgressTimer.Interval = 1000 ' 1000 ms = 1 second
+					ProgressDisplay.MaxValue = iCortinaLen
+				End If
+				ProgressDisplay.Text = "Cortina: " & iCortinaLen & " seconds left."
+			On Error GoTo 0
+
+		Case cFullVolume	' No fade in, set cortina volume and start full cortina volume timer
+			CortinaState = cFullVolume
+			Player.Volume = dCortinaVolume
+			iStateCounter = FullVolumeLength()
+			StateTimer.Interval = 1000	' set timer interval to 1 second for full volume part of cortina (1000ms)
+			On Error Resume Next
+				If ProgressDisplay Is Nothing Then
+					Set ProgressDisplay = SDB.Progress
+					ProgressTimer.Interval = 1000 ' 1000 ms = 1 second			
+					ProgressDisplay.MaxValue = iCortinaLen
+					ProgressDisplay.Value = 0
+				End If
+				ProgressDisplay.Text = "Cortina: " & ProgressDisplay.MaxValue - ProgressDisplay.Value & " seconds left."
+			On Error GoTo 0
+			
+		Case cFadeOut
+			CortinaState = cFadeOut			' set cortina state to fade-out
+			Player.Volume = dCortinaVolume
+			iStateCounter = iFadeOut * 4	' convert seconds to quarter seconds		
+			StateTimer.Interval = 250	' set timer interval to 1/4 second (250ms)
+			On Error Resume Next
+				If ProgressDisplay Is Nothing Then
+					Set ProgressDisplay = SDB.Progress
+					ProgressTimer.Interval = 1000 ' 1000 ms = 1 second			
+					ProgressDisplay.MaxValue = iCortinaLen
+					ProgressDisplay.Value = 0				
+				End If
+				ProgressDisplay.Text = "Cortina: " & ProgressDisplay.MaxValue - ProgressDisplay.Value & " seconds left."
+			On Error GoTo 0
+			
+		Case cGap
+			CortinaState = cGap
+			iStateCounter = iGapTime
+			StateTimer.Interval = 1000	' set timer interval to 1 second for silence gap (1000ms)
+			On Error Resume Next
+				If ProgressDisplay Is Nothing Then
+					Set ProgressDisplay = SDB.Progress
+					ProgressTimer.Interval = 1000 ' 1000 ms = 1 second
+				End If
+				ProgressDisplay.MaxValue = iGapTime
+				ProgressDisplay.Value = 0		
+				ProgressDisplay.Text = "Silence Gap: " & iGapTime & " seconds left."
+			On Error GoTo 0
+			If bDoingCortina Then Player.Stop
+	End Select		
+
+	SDB.ProcessMessages
+	ProgressTimer.Enabled = True	' start the cortina progress display timer
+	StateTimer.Enabled = True		' start the interrupt timer
+
+End Sub
 
 ' called when a song starts to play
 Sub Event_OnPlay()
-
-	' save current playback volume
-	dSongVolume = SDB.Player.Volume
+	' Make sure stop after current is enabled
+	SDB.Player.StopAfterCurrent = True
+	CortinaState = cNone
+	dSongVolume = SDB.Player.Volume	' save current playback volume
+	
+	' Make sure progress display is not shown
+	Set ProgressDisplay = Nothing
 	
 	' check if this song is a cortina
-	If Is_Cortina() = False Then Exit Sub
-
-	ReadSettings ' get current settings
-
-	' do nothing if cortina length is not greater than zero
-	If iCortinaLen <= 0 Then Exit Sub
+	bDoingCortina = Is_Cortina()
+	If bDoingCortina = False Then Exit Sub
 	
+	ReadSettings 					' get current settings
+
 	' retrieve current song length
 	Dim iSongLength
 	iSongLength = CInt((SDB.Player.CurrentSong.StopTime - SDB.Player.CurrentSong.StartTime) / 1000.0) ' convert to seconds
 
-	Dim iTotalTime		' Total time for cortina and silence gap
-	If iSongLength < iCortinaLen Then ' if song is shorter than song length, shorten cortina length
-		iTotalTime = iSongLength + iGapTime
-	Else
-		iTotalTime = iCortinaLen + iGapTime
-	End If
-
-	' set up a progress display for the cortina
-	Set ProgressDisplay = SDB.Progress
-	ProgressDisplay.MaxValue = iTotalTime
-	ProgressTimer.Interval = 1000 ' 1000 ms = 1 second
-	ProgressDisplay.Text = "Cortina: " & iTotalTime & " seconds left."
+	If iSongLength < iCortinaLen Then ' if song is shorter than cortina length use song length instead
+		iCortinaLen = iSongLength
+	End If	
 	
 	' calculate cortina volume
 	dCortinaVolume = dSongVolume * dCortinaVolume
 	
-	' If fade in timer is used, start it
-	If iFadeIn > 0 Then 
-		SDB.Player.Volume = 0.0		' turn volume all the way down
-		CortinaState = cFadeIn		' set cortina state tracker to fade-in
-		iStateCounter = iFadeIn * 4	' convert seconds to quarter seconds
-		' calculate volume decrement value from current settings
-		dVolumeInc = dCortinaVolume / CDbl(iStateCounter)	
-		StateTimer.Interval = 250	' set timer interval to 1/4 second (250ms)
-	Else
-		' No fade in, set cortina volume and start full cortina volume timer
-		SDB.Player.Volume = dCortinaVolume
-		CortinaState = cFullVolume
-		iStateCounter = FullVolumeLength()
-		StateTimer.Interval = 1000	' set timer interval to 1 second for full volume part of cortina (1000ms)		
-	End If		
-		
-	ProgressTimer.Enabled = True ' start the cortina progress display timer
-	StateTimer.Enabled = True	' start the interrupt timer
+	SetupState(GetNextState(CortinaState))
 
 End Sub
 
 ' Handle Pause button toggle
 Sub Event_OnPause()
-
-	' check if current song is a cortina
-	If Is_Cortina() = False Then Exit Sub
-
+	
 	' Re-enable timers if pause was release, otherwise disabled timers
-	If SDB.Player.isPaused = False And SDB.Player.isPlaying = True Then 
+	If SDB.Player.isPaused = False And SDB.Player.isPlaying = True And CortinaState <> cNone Then
 		If IsObject(StateTimer) Then StateTimer.Enabled = True
 		If IsObject(ProgressTimer) Then ProgressTimer.Enabled = True
 	Else
@@ -255,114 +371,108 @@ Sub Event_OnPause()
 	
 End Sub
 
-' Update the progress display (shows a progress bar and info text while cortina is playing)
-Sub OnProgressTimer(thisTimer)
-	' check if progress was terminated
-	If Not isObject(ProgressDisplay) Then 
-		Set ProgressDisplay = Nothing
-		Exit Sub
-	End If
-	If ProgressDisplay.Terminate = True Then
-		thisTimer.Enabled = False
-		Set ProgressDisplay = Nothing
-		Exit Sub
-	End If
+' Handle playback ending because end of track was reached during playback
+Sub Event_TrackEnd()
+	Dim Player : Set Player = SDB.Player
 	
-	' thisTimer is a reference to the ProgressTimer passed this interrupt handler
-	If thisTimer.Enabled Then
-		'thisTimer.Enabled = False
-		ProgressDisplay.Increase
-		ProgressDisplay.Text = "Cortina: " & ProgressDisplay.MaxValue - ProgressDisplay.Value & " seconds left."
-		'thisTimer.Enabled = True
-	End If
-	' check if we need to turn off the progress display
-	If Not isObject(ProgressDisplay) Or ProgressDisplay.Terminate = True Or ProgressDisplay.Value >= ProgressDisplay.MaxValue Then
-		thisTimer.Enabled = False
-		Set ProgressDisplay = Nothing
+	' If last song already played then ignore this
+	If Player.CurrentSongIndex + 1 < Player.PlaylistCount Then
+		SetupState(GetNextState(cFadeOut))	' check if silence gap is set
 	End If
 End Sub
 
-' Stop cortina playback, reset volume, start playing next song.
-Sub GoToNextSong()
-	Dim Player : Set Player = SDB.Player
-	Player.Stop
-
-	While Player.isPlaying
-		SDB.ProcessMessages
-	WEnd	
-
-	If Player.CurrentSongIndex + 1 < Player.PlaylistCount Then 
-		Player.Next
-		Player.Play
+' Handle stop button being pressed or Player.Stop being called
+Sub Event_OnStop()
+	If CortinaState=cGap Then 
+		GoToNextSong()
+	Else
+		Cleanup
 	End If
+End Sub
 
-	Player.Volume = dSongVolume
+' Update the progress display (shows progress bar and text info while cortinaor gap is playing)
+Sub OnProgressTimer(thisTimer)
 	
+	On Error Resume Next ' Avoid errors caused by state timer event destroying ProgressDisplay before we can look at it	
+		thisTimer.Enabled = False
+		
+		' check if progress display exists
+		If ProgressDisplay Is Nothing Or isObject(ProgressDisplay)<>True Then 
+			Set ProgressDisplay = Nothing
+			On Error GoTo 0
+			Exit Sub
+		End If
+		If ProgressDisplay.Terminate = True Or ProgressDisplay.Value >= ProgressDisplay.MaxValue Then 
+			Set ProgressDisplay = Nothing
+			On Error GoTo 0
+			Exit Sub
+		End If
+		
+			
+		Dim iTimeLeft : iTimeLeft = ProgressDisplay.MaxValue - ProgressDisplay.Value - 1
+		
+		If CortinaState = cGap Then
+			ProgressDisplay.Text = "Silence Gap: " & iTimeLeft & " seconds left."
+		Else
+			ProgressDisplay.Text = "Cortina: " & iTimeLeft & " seconds left."
+		End if
+	
+		If 0 > iTimeLeft Then
+			Set ProgressDisplay = Nothing
+			On Error GoTo 0
+			Exit Sub
+		End If
+		
+		SDB.ProcessMessages
+		ProgressDisplay.Increase
+		thisTimer.Enabled = True		
+	On Error GoTo 0
 End Sub
 
 ' Handle Volume Timer event
 Sub OnStateTimer(thisTimer)
 	If thisTimer.Enabled = False Then Exit Sub
-	
 	thisTimer.Enabled = False ' Stop timer to avoid triggering while we are here
 	
 	Dim Player : Set Player = SDB.Player
 	
 	' Act on current state of cortina
-	Select Case CortinaState
-		Case cNone ' Should never happen
-			Exit Sub
+	If CortinaState = cNone Then ' Should never happen
+		DisableTimers
+		On Error Resume Next
+			Set ProgressDisplay = Nothing
+		On Error GoTo 0
+		Exit Sub 
+	End If
 
-		Case cFadeIn ' handle fade in timer interrupt
-			' increment the fade-in timer
+	Select Case CortinaState
+		Case cFadeIn		' handle fade in timer interrupt
 			If iStateCounter > 0 Then
+				' increment the fade-in volume
 				If Player.Volume + dVolumeInc < dCortinaVolume Then
 					Player.Volume = Player.Volume + dVolumeInc
 				Else
 					Player.Volume = dCortinaVolume
 				End If
 				iStateCounter = iStateCounter - 1
-			Else
-				' Switch to FullVolume State
-				Player.Volume = dCortinaVolume
-				iStateCounter = FullVolumeLength()
-				thisTimer.Interval = 1000
-				CortinaState = cFullVolume
+				thisTimer.Enabled = True	' re-start the volume interrupt timer
+				Exit Sub					' and exit
 			End If
-			thisTimer.Enabled = True	' re-start the volume interrupt timer
+			SetupState(GetNextState(CortinaState)) ' Fade In is done, setup next state and exit
+			Exit Sub
+	
 
 		Case cFullVolume	' handle full volume portion of cortina
 			If iStateCounter > 0 Then
 				iStateCounter = iStateCounter - 1	' decrement length counter
 				thisTimer.Enabled = True			' re-start the volume interrupt timer
-			Else
-				' we are done with the full volume part of the cortina, start the fade-out if any
-				If iFadeOut > 0 Then
-					CortinaState = cFadeOut			' set state to fade-out
-					iStateCounter = iFadeOut * 4	' convert seconds to quarter seconds
-					' calculate volume decrement value from current settings
-					dVolumeInc = dCortinaVolume / CDbl(iStateCounter+1)
-					thisTimer.Interval = 250		' set the timer to 1/4 second (250ms)
-					thisTimer.Enabled = True		' re-start the volume interrupt timer
-				Else
-					' if no fade-out, check if silence gap is set
-					If iGapTime > 0 Then
-						Player.Volume = 0.0			' turn volume all the way down
-						CortinaState = cGap			' set state to gap time
-						iStateCounter = iGapTime	' set counter to gap time
-						thisTimer.Interval = 1000	' set interrupt timer to 1 second (1000ms)
-						thisTimer.Enabled = True	' re-start the interrupt timer
-					Else
-						' no gap either, we are done
-						CortinaState = cNone
-						DisableTimers
-						GoToNextSong
-					End If			
-				End If
+				Exit Sub
 			End If
 			
+			SetupState(GetNextState(CortinaState)) ' Full Volume is done, setup next state and exit
+			Exit Sub
 			
-		Case cFadeOut	' handle fade-out timer interrupt	
+		Case cFadeOut		' handle fade-out timer interrupt	
 			If iStateCounter > 0 Then
 				' still fading out, lower volume
 				If Player.Volume > 0.0 Then
@@ -372,33 +482,41 @@ Sub OnStateTimer(thisTimer)
 				End If
 				iStateCounter = iStateCounter - 1
 				thisTimer.Enabled = True		' re-start the interrupt timer
-			Else
-				Player.Volume = 0.0		' fade-out is finished, make sure volume is zero
-				If iGapTime > 0 Then		' check if a silence gap is set
-					CortinaState = cGap				' set state to gap
-					iStateCounter = iGapTime		' set counter to gap time
-					thisTimer.Interval = 1000		' gap timer is 1 second (1000ms)
-					thisTimer.Enabled = True		' re-start the interrupt timer
-				Else
-					' no gap, we are done
-					CortinaState = cNone
-					DisableTimers
-					GoToNextSong
-				End If
+				Exit Sub
 			End If
+			SetupState(GetNextState(CortinaState)) ' Fade Out is done, setup next state and exit
+			Exit Sub
 			
-		Case cGap	' handle silence gap timer interrupt
+		Case cGap			' handle silence gap timer interrupt
 			If iStateCounter > 0 Then
 				iStateCounter = iStateCounter - 1	' decrement silence gap counter
 				thisTimer.Enabled = True			' re-start the interrupt timer
-			Else
-				CortinaState = cNone		' silence gap is finish, set state to none
-				DisableTimers
-				GoToNextSong
+				Exit Sub
 			End If
-		
+			
 	End Select
-		
+
+	CortinaState = cNone		' silence gap is finish, set state to none
+	DisableTimers
+	If bDoingCortina <> True Then GoToNextSong
+
+	Player.Volume = dSongVolume
+	Player.Play
+End Sub
+
+Sub ToggleCrossfade(iOnOff)
+	
+	Dim Player : Set Player = SDB.Player
+	Dim Reg : Set Reg = SDB.Registry
+	If Reg.OpenKey(cRegKey, True) Then
+		If iOnOff = False Then
+			Reg.BoolValue("CrossfadeState") = Player.IsCrossfade
+			Player.IsCrossfade = False
+		Else
+			Player.IsCrossfade = Reg.BoolValue("CrossfadeState")
+		End If
+		Reg.CloseKey
+	End If
 End Sub
 
 ' Save settings from options form to the registry
@@ -464,28 +582,28 @@ End Sub
 Sub length_change(obj)
 	Dim Form1 : Set Form1 = obj.Common.TopParent.Common
 	Dim Label1 : Set Label1 = Form1.ChildControl("lbl_tbCurLen")
-	Label1.Caption = obj.Value & " sec"
+	Label1.Caption = obj.Value & cSecLabel
 End Sub
 
 ' update fade-in display when trackbar is changed
 Sub fadein_change(obj)
 	Dim Form1 : Set Form1 = obj.Common.TopParent.Common
 	Dim Label1 : Set Label1 = Form1.ChildControl("lbl_tbCurFadeIn")
-	Label1.Caption = obj.Value & " sec"
+	Label1.Caption = obj.Value & cSecLabel
 End Sub
 
 ' update fade-out display when trackbar is changed
 Sub fadeout_change(obj)
 	Dim Form1 : Set Form1 = obj.Common.TopParent.Common
 	Dim Label1 : Set Label1 = Form1.ChildControl("lbl_tbCurFadeOut")
-	Label1.Caption = obj.Value & " sec"
+	Label1.Caption = obj.Value & cSecLabel
 End Sub
 
 ' update silence gap length display when trackbar is changed
 Sub gap_change(obj)
 	Dim Form1 : Set Form1 = obj.Common.TopParent.Common
 	Dim Label1 : Set Label1 = Form1.ChildControl("lbl_tbCurGap")
-	Label1.Caption = obj.Value & " sec"
+	Label1.Caption = obj.Value & cSecLabel
 End Sub
 
 ' update cortina volume display when trackbar is changed
@@ -544,8 +662,8 @@ Sub ShowForm(arg)
 	CheckBox4.Common.Hint = "Search song's directory path on disk for the word ""cortina"""
 		
 	Dim TrackBar1 : Set TrackBar1 = SDB.UI.NewTrackBar(Form1)
-	TrackBar1.MaxValue = 240
-	TrackBar1.MinValue = 15
+	TrackBar1.MaxValue = cCortinaMax
+	TrackBar1.MinValue = cCortinaMin
 	TrackBar1.Value = iCortinaLen
 	TrackBar1.Common.SetRect 16,60,450,45
 	TrackBar1.Common.ControlName = "tb_CortinaLen"
@@ -556,11 +674,11 @@ Sub ShowForm(arg)
 	Dim Label2 : Set Label2 = SDB.UI.NewLabel(Form1)
 	Label2.Autosize = False
 	Label2.Common.SetRect 15,105,65,17
-	Label2.Caption = "15 sec"
+	Label2.Caption = cCortinaMin & cSecLabel
 	
 	Dim Label3 : Set Label3 = SDB.UI.NewLabel(Form1)
 	Label3.Common.SetRect 432,105,65,17
-	Label3.Caption = "240 sec"
+	Label3.Caption = cCortinaMax & cSecLabel
 	
 	Dim Label4 : Set Label4 = SDB.UI.NewLabel(Form1)
 	Label4.Common.SetRect 182,105,70,17
@@ -569,7 +687,7 @@ Sub ShowForm(arg)
 	Dim Label5 : Set Label5 = SDB.UI.NewLabel(Form1)
 	Label5.Common.SetRect 264,105,80,17
 	Label5.Common.ControlName = "lbl_tbCurLen"
-	Label5.Caption = iCortinaLen & " sec"
+	Label5.Caption = iCortinaLen & cSecLabel
 
 	
 	Dim TrackBar2 : Set TrackBar2 = SDB.UI.NewTrackBar(Form1)
@@ -582,7 +700,7 @@ Sub ShowForm(arg)
 	
 	Dim Label6 : Set Label6 = SDB.UI.NewLabel(Form1)
 	Label6.Common.SetRect 16,190,65,17
-	Label6.Caption = "0 sec"
+	Label6.Caption = cFadeInMin & cSecLabel
 	
 	Dim Label7 : Set Label7 = SDB.UI.NewLabel(Form1)
 	Label7.Common.SetRect 191,190,65,17
@@ -591,11 +709,11 @@ Sub ShowForm(arg)
 	Dim Label8 : Set Label8 = SDB.UI.NewLabel(Form1)
 	Label8.Common.SetRect 264,190,65,17
 	Label8.Common.ControlName = "lbl_tbCurFadeIn"
-	Label8.Caption = iFadeIn & " sec"
+	Label8.Caption = iFadeIn & cSecLabel
 	
 	Dim Label9 : Set Label9 = SDB.UI.NewLabel(Form1)
 	Label9.Common.SetRect 431,190,65,17
-	Label9.Caption = "10 sec"
+	Label9.Caption = cFadeInMax & cSecLabel
 	
 	Dim TrackBar3 : Set TrackBar3 = SDB.UI.NewTrackBar(Form1)
 	TrackBar3.MaxValue = 15
@@ -612,16 +730,16 @@ Sub ShowForm(arg)
 	
 	Dim Label11 : Set Label11 = SDB.UI.NewLabel(Form1)
 	Label11.Common.SetRect 16,275,65,17
-	Label11.Caption = "1 sec"
+	Label11.Caption = cFadeOutMin & cSecLabel
 	
 	Dim Label12 : Set Label12 = SDB.UI.NewLabel(Form1)
 	Label12.Common.SetRect 430,275,85,17
-	Label12.Caption = "15 sec"
+	Label12.Caption = cFadeOutMax & cSecLabel
 	
 	Dim Label13 : Set Label13 = SDB.UI.NewLabel(Form1)
 	Label13.Common.SetRect 264,275,65,17
 	Label13.Common.ControlName = "lbl_tbCurFadeOut"
-	Label13.Caption = iFadeOut & " sec"
+	Label13.Caption = iFadeOut & cSecLabel
 	
 	Dim TrackBar4 : Set TrackBar4 = SDB.UI.NewTrackBar(Form1)
 	TrackBar4.MaxValue = 5
@@ -634,7 +752,7 @@ Sub ShowForm(arg)
 	
 	Dim Label14 : Set Label14 = SDB.UI.NewLabel(Form1)
 	Label14.Common.SetRect 17,359,65,17
-	Label14.Caption = "0 sec"
+	Label14.Caption = cGapMin & cSecLabel
 	
 	Dim Label15 : Set Label15 = SDB.UI.NewLabel(Form1)
 	Label15.Common.SetRect 208,359,65,17
@@ -643,11 +761,11 @@ Sub ShowForm(arg)
 	Dim Label16 : Set Label16 = SDB.UI.NewLabel(Form1)
 	Label16.Common.SetRect 264,359,80,17
 	Label16.Common.ControlName = "lbl_tbCurGap"
-	Label16.Caption = iGapTime & " sec"
+	Label16.Caption = iGapTime & cSecLabel
 	
 	Dim Label17 : Set Label17 = SDB.UI.NewLabel(Form1)
 	Label17.Common.SetRect 437,359,65,17
-	Label17.Caption = "5 sec"
+	Label17.Caption = cGapMax & cSecLabel
 	
 	Dim iCortinaVolume: iCortinaVolume = CInt(dCortinaVolume * 100.0)
 	Dim TrackBar5 : Set TrackBar5 = SDB.UI.NewTrackBar(Form1)
