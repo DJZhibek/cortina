@@ -292,7 +292,7 @@ Sub SetupState(newState)
 		Case cFadeOut
 			CortinaState = cFadeOut			' set cortina state to fade-out
 			Player.Volume = dCortinaVolume
-			iStateCounter = iFadeOut * 4	' convert seconds to quarter seconds		
+			iStateCounter = iFadeOut * 4	' convert seconds to quarter seconds
 			StateTimer.Interval = 250	' set timer interval to 1/4 second (250ms)
 			On Error Resume Next
 				If ProgressDisplay Is Nothing Then
@@ -306,8 +306,8 @@ Sub SetupState(newState)
 			
 		Case cGap
 			CortinaState = cGap
-			iStateCounter = iGapTime
-			StateTimer.Interval = 1000	' set timer interval to 1 second for silence gap (1000ms)
+			iStateCounter = iGapTime * 4	' convert seconds to quarter seconds
+			StateTimer.Interval = 250	' set timer interval to 1 second for silence gap (250ms)
 			On Error Resume Next
 				If ProgressDisplay Is Nothing Then
 					Set ProgressDisplay = SDB.Progress
@@ -330,15 +330,18 @@ End Sub
 Sub Event_OnPlay()
 	' Make sure stop after current is enabled
 	SDB.Player.StopAfterCurrent = True
-	CortinaState = cNone
-	dSongVolume = SDB.Player.Volume	' save current playback volume
-	
+		
 	' Make sure progress display is not shown
 	Set ProgressDisplay = Nothing
 	
 	' check if this song is a cortina
 	bDoingCortina = Is_Cortina()
-	If bDoingCortina = False Then Exit Sub
+	If bDoingCortina = False Then 
+		If CortinaState = cNone Then dSongVolume = SDB.Player.Volume  ' save current playback volume
+		CortinaState = cNone
+		Exit Sub
+	End If
+	CortinaState = cNone
 	
 	ReadSettings 					' get current settings
 
@@ -359,7 +362,6 @@ End Sub
 
 ' Handle Pause button toggle
 Sub Event_OnPause()
-	
 	' Re-enable timers if pause was release, otherwise disabled timers
 	If SDB.Player.isPaused = False And SDB.Player.isPlaying = True And CortinaState <> cNone Then
 		If IsObject(StateTimer) Then StateTimer.Enabled = True
