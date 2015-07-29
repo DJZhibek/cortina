@@ -7,24 +7,24 @@ Installation:
 
 * MediMonkey must be installed on your system before proceeding.
 * Download cortina.mmip and double-click the file, this will launch MediaMonkey and start the script installation process.
-* Some versions of Windows will require entering an administration account name and passowrd to proceed.
+* Some versions of Windows will require entering an administration account name and password to proceed.
 * Restart MediaMonkey.
 
 Updating:
 
-* From the 'Tools' menu, click the 'Extensions' menu item.
+* From the MediaMonkey 'Tools' menu, click the 'Extensions' menu item.
 * Click the 'Find Updates' button at the bottom of the dialog box.
 * If an update is available, click on 'Cortina' in the list of extensions, then click the 'Install Update' button.
-* Some versions of Windows will require entering an administration account name and passowrd to proceed.
+* Some versions of Windows will require entering an administration account name and password to proceed.
 * Restart MediaMonkey.
 
 Uninstall:
 
-* From the 'Tools' menu, click the 'Extensions' menu item.
+* From the MediaMonkey 'Tools' menu, click the 'Extensions' menu item.
 * Click on 'Cortina' in the list of extensions.
 * Click the 'Uninstall' button.
 * Click the 'OK' button on the confirmation prompt.
-* Select either the 'Yes' or 'No' option on the prompt asking if you wish to delete registry settings created by the script.
+* Select 'Yes' or 'No' option for the prompt asking if you wish to delete registry settings created by the script. Selecting 'Yes' to delete registry settings will remove all traces of the cortina plugin; your cortina settings will no longer exist if you reinstall the cortina plugin later.
 * Click 'OK' on the uninstall information prompt.
 * Restart MediaMonkey.
 
@@ -41,7 +41,7 @@ Configuring:
   * Fade Out Time:
     - Drag slider to set a fade-out time (in seconds).
   * Gap Time:
-    - Drag slider to add and additional gap of silence after cortinas and songs (in seconds).
+    - Drag slider to add an additional gap of silence after cortinas and songs (in seconds).
   * Cortina Volume:
     - Drag slider to set playback volume of cortinas (in percent of normal playback volume).
 * Click the 'Cancel' button to discard all changes to settings.
