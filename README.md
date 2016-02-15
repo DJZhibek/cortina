@@ -66,3 +66,15 @@ Additional notes:
   Take this into consideration if you use short silence files, they should not be labeled as cortinas when using this
   script or they might be skipped.
 
+* If you use 'MediaMonkey WASAPI output' as your Output Plug-in, be sure to disable Events for the plug-in:
+    * Stop any playback in progress
+    * Click Tools => Options
+    * Click Player => Output Plugins
+    * Under the 'Available Output Plugins' select 'MediaMonkey WASAPI output' then click the 'Configure' button
+    * Make sure the correct output device is selected from the list
+    * Click the 'Advanced' button.
+    * Uncheck the 'Event driven Exclusive mode (recommended)' checkbox
+    * Uncheck the 'Event driven Shared mode (recommended)' checkbox
+    * Click the 'OK' button on all open dialog boxes
+    * Restart your playback
+
