@@ -27,7 +27,7 @@ If Reg.OpenKey(cRegKey, True) Then
 		Reg.IntValue("FadeOut") = 10
 	End If		
 	If Not Reg.ValueExists("GapTime") Then
-		Reg.IntValue("GapTime") = 2
+		Reg.IntValue("GapTime") = 3
 	End If
 	If Not Reg.ValueExists("CortinaVolume") Then
 		Reg.IntValue("CortinaVolume") = 70

@@ -34,12 +34,12 @@ Dim bSearchTitle : bSearchTitle = False			' search song title for 'cortina'?
 Dim bSearchGenre : bSearchGenre = False			' search song genre for 'cortina'?
 Dim bSearchPath : bSearchPath = False			' search song path for 'cortina'?
 Dim bSearchAllCustomTags : bSearchAllCustomTags = False	' search song Custom1 tag for 'cortina'?
-Dim iCortinaLen : iCortinaLen = 45				' default cortina length in seconds (includes fade-in and fade-out time)
+Dim iCortinaLen : iCortinaLen = 45			' default cortina length in seconds (includes fade-in and fade-out time)
 Dim dCortinaVolume : dCortinaVolume = 0.7		' default cortina volume multiplier
-Dim iFadeIn : iFadeIn = 1						' default fade-in time in seconds
-Dim iFadeOut : iFadeOut = 5						' default fade-out time in seconds
-Dim iGapTime : iGapTime = 2						' default gap time in seconds (additional silence added after cortinas and songs)
-Dim dSongVolume : dSongVolume = 1.0				' storage for current playback volume (copied before cortina volume modifies it)
+Dim iFadeIn : iFadeIn = 1				' default fade-in time in seconds
+Dim iFadeOut : iFadeOut = 5				' default fade-out time in seconds
+Dim iGapTime : iGapTime = 3				' default gap time in seconds (additional silence added after cortinas and songs)
+Dim dSongVolume : dSongVolume = 1.0			' storage for current playback volume (copied before cortina volume modifies it)
 
 
 ' cortina setting constants
@@ -51,10 +51,10 @@ Const cFadeInMax = 10
 Const cFadeOutMin = 0
 Const cFadeOutMax = 15
 Const cGapMin = 0
-Const cGapMax = 5
+Const cGapMax = 10
 
 
-' cortina status constants
+' cortina state constants
 Const cNone = 0
 Const cFadeIn = 1
 Const cFullVolume = 2
@@ -138,18 +138,24 @@ Function Is_Cortina()
 	
 	' test selected locations to see if the word "cortina" exists (not case sensitive)
 	If bSearchGenre Then
-		If Instr(1,objSongData.Genre,"cortina",1) > 0 Then Is_Cortina = True
-		Exit Function
+		If Instr(1,objSongData.Genre,"cortina",1) > 0 Then 
+			Is_Cortina = True
+			Exit Function
+		End If
 	End If
 	
 	If bSearchTitle Then
-		If Instr(1,objSongData.Title,"cortina",1) > 0 Then Is_Cortina = True
-		Exit Function
+		If Instr(1,objSongData.Title,"cortina",1) > 0 Then 
+			Is_Cortina = True
+			Exit Function
+		End If
 	End If
 
 	If bSearchPath Then
-		If Instr(1,objSongData.Path,"cortina",1) > 0 Then Is_Cortina = True
-		Exit Function
+		If Instr(1,objSongData.Path,"cortina",1) > 0 Then
+			Is_Cortina = True
+			Exit Function
+		End If
 	End If
 
 	If bSearchAllCustomTags Then
@@ -237,11 +243,8 @@ Function GetNextState(curState)
 	End If
 
 	If GetNextState = cFadeOut Then	
-		If iGapTime > 0 Then
-			GetNextState = cGap
-			Exit Function
-		End If
-		GetNextState = cNone
+		GetNextState = cGap
+		Exit Function
 	End If
 
 	If GetNextState = cGap Then	
@@ -290,7 +293,7 @@ Sub SetupState(newState)
 			On Error GoTo 0
 			
 		Case cFadeOut
-			CortinaState = cFadeOut			' set cortina state to fade-out
+			CortinaState = cFadeOut		' set cortina state to fade-out
 			Player.Volume = dCortinaVolume
 			iStateCounter = iFadeOut * 4	' convert seconds to quarter seconds
 			StateTimer.Interval = 250	' set timer interval to 1/4 second (250ms)
@@ -322,7 +325,7 @@ Sub SetupState(newState)
 
 	SDB.ProcessMessages
 	ProgressTimer.Enabled = True	' start the cortina progress display timer
-	StateTimer.Enabled = True		' start the interrupt timer
+	StateTimer.Enabled = True	' start the interrupt timer
 
 End Sub
 
@@ -392,7 +395,7 @@ Sub Event_OnStop()
 	End If
 End Sub
 
-' Update the progress display (shows progress bar and text info while cortinaor gap is playing)
+' Update the progress display (shows progress bar and text info while cortina or gap is playing)
 Sub OnProgressTimer(thisTimer)
 	
 	On Error Resume Next ' Avoid errors caused by state timer event destroying ProgressDisplay before we can look at it	
@@ -413,16 +416,16 @@ Sub OnProgressTimer(thisTimer)
 			
 		Dim iTimeLeft : iTimeLeft = ProgressDisplay.MaxValue - ProgressDisplay.Value - 1
 		
-		If CortinaState = cGap Then
-			ProgressDisplay.Text = "Silence Gap: " & iTimeLeft & " seconds left."
-		Else
-			ProgressDisplay.Text = "Cortina: " & iTimeLeft & " seconds left."
-		End if
-	
 		If 0 > iTimeLeft Then
 			Set ProgressDisplay = Nothing
 			On Error GoTo 0
 			Exit Sub
+		End If
+
+		If CortinaState = cGap Then
+			ProgressDisplay.Text = "Silence Gap: " & iTimeLeft & " seconds left."
+		Else
+			ProgressDisplay.Text = "Cortina: " & iTimeLeft & " seconds left."
 		End If
 		
 		SDB.ProcessMessages
@@ -439,14 +442,6 @@ Sub OnStateTimer(thisTimer)
 	Dim Player : Set Player = SDB.Player
 	
 	' Act on current state of cortina
-	If CortinaState = cNone Then ' Should never happen
-		DisableTimers
-		On Error Resume Next
-			Set ProgressDisplay = Nothing
-		On Error GoTo 0
-		Exit Sub 
-	End If
-
 	Select Case CortinaState
 		Case cFadeIn		' handle fade in timer interrupt
 			If iStateCounter > 0 Then
@@ -489,16 +484,16 @@ Sub OnStateTimer(thisTimer)
 			SetupState(GetNextState(CortinaState)) ' Fade Out is done, setup next state and exit
 			Exit Sub
 			
-		Case cGap			' handle silence gap timer interrupt
+		Case cGap		' handle silence gap timer interrupt
 			If iStateCounter > 0 Then
 				iStateCounter = iStateCounter - 1	' decrement silence gap counter
-				thisTimer.Enabled = True			' re-start the interrupt timer
+				thisTimer.Enabled = True		' re-start the interrupt timer
 				Exit Sub
 			End If
 			
 	End Select
 
-	CortinaState = cNone		' silence gap is finish, set state to none
+	CortinaState = cNone		' silence gap is finished, set state to none
 	DisableTimers
 	If bDoingCortina <> True Then GoToNextSong
 
@@ -744,7 +739,7 @@ Sub ShowForm(arg)
 	Label13.Caption = iFadeOut & cSecLabel
 	
 	Dim TrackBar4 : Set TrackBar4 = SDB.UI.NewTrackBar(Form1)
-	TrackBar4.MaxValue = 5
+	TrackBar4.MaxValue = 10
 	TrackBar4.MinValue = 0
 	TrackBar4.Value = iGapTime
 	TrackBar4.Common.SetRect 16,317,450,45
@@ -799,8 +794,6 @@ Sub ShowForm(arg)
 	Button2.Common.SetRect 307,500,75,25
 	Button2.Common.ControlName = "btn_CancelOptions"	
 	
-	'*******************************************************************'
-	'* End of form                              Richard Lewis (c) 2007 *'
 	'*******************************************************************'
 	
 	' Show form as modal, save settings if Save button is clicked on exit
