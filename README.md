@@ -66,7 +66,7 @@ Additional notes:
   Take this into consideration if you use short silence files, they should not be labeled as cortinas when using this
   script or they might be skipped.
 
-* If you use 'MediaMonkey WASAPI output' as your Output Plug-in, be sure to disable Events for the plug-in:
+* If you use 'MediaMonkey WASAPI output' as your Output Plug-in and cortinas are not working:
     * Stop any playback in progress
     * Click Tools => Options
     * Click Player => Output Plugins
@@ -77,4 +77,5 @@ Additional notes:
     * Uncheck the 'Event driven Shared mode (recommended)' checkbox
     * Click the 'OK' button on all open dialog boxes
     * Restart your playback
+    * If this does not fix the problem, restore the original settings and consult your soundcard manufacturer for the correct settings.
 
