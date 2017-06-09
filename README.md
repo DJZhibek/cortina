@@ -66,6 +66,14 @@ Additional notes:
   Take this into consideration if you use short silence files, they should not be labeled as cortinas when using this
   script or they might be skipped.
 
+* For a uniform length of silence between each song follow this procedure:
+  * From the 'Tools' menu, click the 'Options' menu item.
+  * Click on 'Output Plug-ins' in the list of options.
+  * Click on the currently enabled output plug-in in the list of 'Available Output Plug-ins:'
+  * Checkmark the "Remove silence at the beginning / end of track" checkbox in your output plug-in.
+  * Note that some output plug-ins, like waveOut, do not have this option. Use an output plug-in that does have this option, such as MediaMonkey DirectSound output.
+  * Use the 'Gap Time' slider in the Cortina options panel to add back in a fixed length of silence between all tracks.
+
 * If you use 'MediaMonkey WASAPI output' as your Output Plug-in and cortinas are not working:
     * Stop any playback in progress
     * Click Tools => Options
