@@ -3,6 +3,6 @@
   <VersionMinor>2</VersionMinor>
   <VersionRelease>1</VersionRelease>
   <VersionBuild>1</VersionBuild>
-  <UpdateURL>http://www.tangoexchange.com/versions/cortina.mmip</UpdateURL>
+  <UpdateURL>https://www.tangoexchange.com/versions/cortina.mmip</UpdateURL>
   <NewVersionDescription>MediaMonkey Cortina Script: Manage fade in, fade out, and length of cortinas</NewVersionDescription>
 </SoftwareVersion>

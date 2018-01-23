@@ -614,7 +614,8 @@ End Sub
 ' Displays the options form
 Sub ShowForm(arg)
 	'*******************************************************************'
-	'* Form produced by MMVBS Form Creator (http://trixmoto.net/mmvbs) *'
+	'* Form produced by MMVBS Form Creator                             *'
+	'* (https://code.google.com/archive/p/mmvbs/)                      *'
 	'*******************************************************************'
 	
 	Dim Form1 : Set Form1 = SDB.UI.NewForm
