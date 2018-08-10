@@ -51,7 +51,7 @@ More info: <https://www.tangoexchange.com/cortina-plugin-for-mediamonkey/>
 
 **Build Notes:**
 
-* To build the MediaMonkey Installation Package, compress all files, except for cortina.xml, with any Zip compressor utility. 
+* To build the MediaMonkey Installation Package, compress all files, except for `cortina.xml`, with any Zip compressor utility. 
 * Rename the resulting zip file to `cortina.mmip` (mmip = MediaMonkey Installer Package).
 * Double-clicking on `cortina.mmip` will automatically start the MediaMonkey installation process.
 
