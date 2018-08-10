@@ -2,11 +2,12 @@ cortina
 =======
 
 MediaMonkey Script: Tango DJ utility. Turn songs into cortinas without editing
+More info: <https://www.tangoexchange.com/cortina-plugin-for-mediamonkey/>
 
 Installation:
 
-* MediMonkey must be installed on your system before proceeding.
-* Download cortina.mmip and double-click the file, this will launch MediaMonkey and start the script installation process.
+* [MediMonkey](https://www.mediamonkey.com/) must be installed on your system before proceeding.
+* Download [cortina.mmip](https://github.com/wpkc/cortina/blob/master/cortina.mmip) and double-click the file, this will launch MediaMonkey and start the script installation process.
 * Some versions of Windows will require entering an administration account name and password to proceed.
 * Restart MediaMonkey.
 
