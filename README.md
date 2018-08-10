@@ -63,7 +63,7 @@ More info: <https://www.tangoexchange.com/cortina-plugin-for-mediamonkey/>
     * Click the `Details` tab in the song properties dialog box.
     * Change the `Start Time` setting to anything later that 0:00.
     * Click the `OK` button.
-    * Note: setting the Fade-In option to 1 second or more will help hide any abrupt start to the cortina.
+    * Note: setting the `Fade-In` option to 1 second or more will help hide any abrupt start to the cortina.
     
 * If the song used for a cortina is shorter than the configured cortina length, the script will try to shorten the 
   full volume time period of the cortina.  If it is too short, it will be ignored and no cortina will be played.
