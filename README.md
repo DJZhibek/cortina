@@ -79,6 +79,7 @@ More info: <https://www.tangoexchange.com/cortina-plugin-for-mediamonkey/>
   * Use the `Gap Time` slider in the Cortina options panel to add back in a fixed length of silence between all tracks.
 
 * If you use `MediaMonkey WASAPI output` as your Output Plug-in and cortinas are not working:
+    * First, try changing MediaMonkey's volume control while a song is playing. If the speaker volume does not change, then your soundcard has taken exclusive control of the volume. You will not be able to use the WASAPI output plugin with your soundcard and have fade-in and fade-outs of cortinas controlled by the Cortina plugin.  If the speaker volume does change, the Cortina plug-in should be able to function with WASAPI. If you are still having problems, continue with the following list of things to try to make the plugin work.
     * Stop any playback in progress
     * Click Tools => Options
     * Click Player => Output Plugins
